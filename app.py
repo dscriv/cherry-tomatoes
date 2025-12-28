@@ -1,5 +1,5 @@
 import streamlit as st
-from rottentomatoes_python import Search, Movie, TVShow
+from rottentomatoes import Search, Movie, TVShow
 
 st.set_page_config(page_title="Cherry Tomatoes", page_icon="🍅")
 st.title("🍅 Cherry Tomatoes")
