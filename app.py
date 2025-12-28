@@ -1,37 +1,44 @@
 import streamlit as st
-from rottentomatoes import Search, Movie, TVShow
+import rottentomatoes as rt
 
 st.set_page_config(page_title="Cherry Tomatoes", page_icon="🍅")
 st.title("🍅 Cherry Tomatoes")
 
-query = st.text_input("Search Movie or Series:", placeholder="e.g. Succession")
+query = st.text_input("Search Movie or Series:", placeholder="e.g. Toy Story")
 
 if query:
     try:
-        results = Search(query)
-        all_results = results.movies + results.tv_shows
-        
-        if not all_results:
-            st.warning("No matches found.")
-        else:
-            for item in all_results:
-                score = f"{item.tomatometer}%" if item.tomatometer else "N/A"
-                year = item.year if item.year else "???"
+        # In version 1.2.0, we try to fetch the movie directly
+        # Use a spinner to show the phone is working
+        with st.spinner(f"Looking up '{query}'..."):
+            # Try as a movie first
+            movie = rt.Movie(query)
+            
+            if movie.title:
+                st.header(f"{movie.title} ({movie.year})")
+                st.subheader(f"Score: {movie.tomatometer}")
                 
-                # Create a clickable button for each result
-                if st.button(f"[{score}] {item.name} ({year})", use_container_width=True):
-                    st.divider()
-                    # Determine if it's TV or Movie based on URL
-                    if "tv" in item.url:
-                        data = TVShow(item.name)
-                        st.subheader(f"{item.name} (Season 1)")
-                    else:
-                        data = Movie(item.name)
-                        st.subheader(item.name)
-                        
-                    st.write(f"**Synopsis:** {data.synopsis}")
-                    st.write("**Top Critic Reviews:**")
-                    for r in data.reviews[:8]:
-                        st.info(f"\"{r.text}\"\n— {r.critic}")
+                st.write(f"**Synopsis:** {movie.synopsis}")
+                
+                st.write("**Top Critic Reviews:**")
+                if movie.reviews:
+                    for r in movie.reviews[:8]:
+                        st.info(f"\"{r}\"")
+                else:
+                    st.write("No reviews found.")
+            else:
+                st.warning("No exact match found. Try a more specific title.")
+
     except Exception as e:
-        st.error(f"Search failed. RT might be blocking the request. Try again in a moment.")
+        # If Movie fails, try TV Show
+        try:
+            show = rt.TVShow(query)
+            st.header(f"{show.title} (Season 1)")
+            st.subheader(f"Score: {show.tomatometer}")
+            st.write(f"**Synopsis:** {show.synopsis}")
+            
+            st.write("**Top Critic Reviews:**")
+            for r in show.reviews[:8]:
+                st.info(f"\"{r}\"")
+        except:
+            st.error("Could not find a match for that title on Rotten Tomatoes.")
