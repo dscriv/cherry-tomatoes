@@ -8,39 +8,43 @@ query = st.text_input("Search Movie or Series:", placeholder="e.g. Toy Story")
 
 if query:
     try:
-        with st.spinner(f"Searching RT for '{query}'..."):
-            # We try to get the score directly first - this is the most reliable method
-            score = rt.tomatometer(query)
-            audience = rt.audience_score(query)
+        with st.spinner(f"Searching for '{query}'..."):
+            # Use the search function to find actual matches
+            search_results = rt.search(query)
             
-            if score:
-                # If we found a score, we can pull the rest of the info
-                movie = rt.Movie(query)
-                st.header(f"{movie.title} ({movie.year})")
+            # Combine Movies and TV results
+            results = search_results.get("movies", []) + search_results.get("tv_shows", [])
+            
+            if not results:
+                st.warning("No matches found. Try a different spelling.")
+            else:
+                # Show the top result automatically
+                top_item = results[0]
+                name = top_item.get("name")
+                is_tv = "/tv/" in top_item.get("url", "")
                 
-                col1, col2 = st.columns(2)
-                col1.metric("Tomatometer", f"{score}%")
-                col2.metric("Audience", f"{audience}%")
+                if is_tv:
+                    data = rt.TVShow(name)
+                    st.header(f"{data.title} (Series)")
+                else:
+                    data = rt.Movie(name)
+                    st.header(f"{data.title} ({data.year})")
+                
+                # Layout scores
+                c1, c2 = st.columns(2)
+                c1.metric("Tomatometer", f"{data.tomatometer}%")
+                if hasattr(data, 'audience_score'):
+                    c2.metric("Audience", f"{data.audience_score}%")
                 
                 st.divider()
-                st.write(f"**Synopsis:** {movie.synopsis}")
+                st.write(f"**Synopsis:** {data.synopsis}")
                 
                 st.subheader("Top Critic Reviews")
-                if movie.reviews:
-                    for r in movie.reviews[:8]:
+                if data.reviews:
+                    for r in data.reviews[:8]:
                         st.info(f"\"{r}\"")
                 else:
-                    st.write("No critic reviews found.")
-            else:
-                # If movie fails, try searching as a TV Show
-                show = rt.TVShow(query)
-                st.header(f"{show.title} (Season 1)")
-                st.metric("Tomatometer", f"{show.tomatometer}%")
-                st.write(f"**Synopsis:** {show.synopsis}")
-                
-                st.subheader("Reviews")
-                for r in show.reviews[:5]:
-                    st.info(f"\"{r}\"")
+                    st.write("No reviews found for this title.")
                     
     except Exception as e:
-        st.error("Match not found. Try adding the year (e.g. 'Toy Story 1995') or check your spelling.")
+        st.error("RT is currently blocking the search. Please wait 60 seconds and try again.")
